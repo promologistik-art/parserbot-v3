@@ -49,7 +49,6 @@ async def add_source_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['temp_project_id'] = project.id
     context.user_data['temp_project_name'] = project.name
     
-    # Выбор типа источника
     keyboard = [
         [InlineKeyboardButton("📡 Telegram канал", callback_data="source_type_telegram")],
         [InlineKeyboardButton("🎬 YouTube (поиск)", callback_data="source_type_youtube")],
@@ -64,7 +63,6 @@ async def add_source_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def source_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора типа источника."""
     query = update.callback_query
     await query.answer()
     
@@ -81,7 +79,6 @@ async def source_type_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return AWAITING_SOURCE_USERNAME
     else:
-        # YouTube источник
         await query.edit_message_text(
             "🎬 <b>YouTube источник</b>\n\n"
             "Введите поисковый запрос (ключевые слова):\n"
@@ -128,8 +125,49 @@ async def add_source_username(update: Update, context: ContextTypes.DEFAULT_TYPE
     return AWAITING_CRITERIA
 
 
+async def add_source_criteria(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    choice = query.data.replace("criteria_", "")
+    temp = context.user_data.get('temp_source')
+    
+    if not temp:
+        await query.edit_message_text("❌ Ошибка: данные не найдены.")
+        return ConversationHandler.END
+    
+    if choice == "custom":
+        await query.edit_message_text(
+            "📊 <b>Настройка критериев</b>\n\nВведите минимальное количество просмотров (0 = не учитывать):",
+            parse_mode="HTML"
+        )
+        context.user_data['awaiting_criteria'] = 'views'
+        return AWAITING_VIEWS
+    else:
+        criteria = {
+            "views": {"min_views": 1000},
+            "reactions": {"min_reactions": 50},
+            "both": {"min_views": 500, "min_reactions": 25},
+            "none": {}
+        }.get(choice, {})
+        
+        context.user_data['temp_criteria'] = criteria
+        
+        keyboard = [
+            [InlineKeyboardButton("📷 Все (фото + видео)", callback_data="media_all")],
+            [InlineKeyboardButton("🖼️ Только фото", callback_data="media_photo_only")],
+            [InlineKeyboardButton("🎬 Только видео", callback_data="media_video_only")],
+        ]
+        
+        await query.edit_message_text(
+            f"✅ Критерии выбраны\n\nТеперь выберите тип контента для @{temp['username']}:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="HTML"
+        )
+        return AWAITING_MEDIA_FILTER
+
+
 async def youtube_query_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода поискового запроса для YouTube."""
     query_text = update.message.text.strip()
     
     if query_text == "-":
@@ -137,11 +175,10 @@ async def youtube_query_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         context.user_data['temp_youtube_query'] = query_text
     
-    # Выбор категории
     categories = get_categories_list()
     keyboard = []
     row = []
-    for cat in categories[:20]:  # Ограничим для удобства
+    for cat in categories[:20]:
         row.append(InlineKeyboardButton(cat['name'][:20], callback_data=f"youtube_cat_{cat['id']}"))
         if len(row) == 2:
             keyboard.append(row)
@@ -160,7 +197,6 @@ async def youtube_query_input(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def youtube_category_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора категории YouTube."""
     query = update.callback_query
     await query.answer()
     
@@ -170,7 +206,6 @@ async def youtube_category_callback(update: Update, context: ContextTypes.DEFAUL
     else:
         context.user_data['temp_youtube_category'] = cat_data
     
-    # Выбор региона
     regions = get_regions_list()
     keyboard = []
     row = []
@@ -193,7 +228,6 @@ async def youtube_category_callback(update: Update, context: ContextTypes.DEFAUL
 
 
 async def youtube_region_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора региона YouTube."""
     query = update.callback_query
     await query.answer()
     
@@ -203,7 +237,6 @@ async def youtube_region_callback(update: Update, context: ContextTypes.DEFAULT_
     else:
         context.user_data['temp_youtube_region'] = region_data
     
-    # Критерии отбора для YouTube
     keyboard = [
         [InlineKeyboardButton("🎯 Свои критерии", callback_data="youtube_criteria_custom")],
         [InlineKeyboardButton("👁 100K+ просмотров", callback_data="youtube_criteria_views")],
@@ -223,7 +256,6 @@ async def youtube_region_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def youtube_criteria_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора критериев для YouTube."""
     query = update.callback_query
     await query.answer()
     
@@ -248,7 +280,6 @@ async def youtube_criteria_callback(update: Update, context: ContextTypes.DEFAUL
         
         context.user_data['temp_youtube_criteria'] = criteria
         
-        # Переходим к настройке медиа фильтра
         keyboard = [
             [InlineKeyboardButton("🎬 Все видео", callback_data="media_all")],
             [InlineKeyboardButton("📱 Только Shorts", callback_data="media_shorts_only")],
@@ -262,6 +293,52 @@ async def youtube_criteria_callback(update: Update, context: ContextTypes.DEFAUL
         return AWAITING_MEDIA_FILTER
 
 
+async def criteria_views_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        views = int(update.message.text.strip())
+        if views < 0:
+            raise ValueError
+    except:
+        await update.message.reply_text("❌ Введите целое число (0 = не учитывать):")
+        return AWAITING_VIEWS
+    
+    context.user_data['temp_criteria_views'] = views
+    await update.message.reply_text("📊 Введите минимальное количество реакций (0 = не учитывать):")
+    return AWAITING_REACTIONS
+
+
+async def criteria_reactions_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        reactions = int(update.message.text.strip())
+        if reactions < 0:
+            raise ValueError
+    except:
+        await update.message.reply_text("❌ Введите целое число (0 = не учитывать):")
+        return AWAITING_REACTIONS
+    
+    views = context.user_data.get('temp_criteria_views', 0)
+    criteria = {}
+    if views > 0:
+        criteria['min_views'] = views
+    if reactions > 0:
+        criteria['min_reactions'] = reactions
+    
+    context.user_data['temp_criteria'] = criteria
+    
+    keyboard = [
+        [InlineKeyboardButton("📷 Все (фото + видео)", callback_data="media_all")],
+        [InlineKeyboardButton("🖼️ Только фото", callback_data="media_photo_only")],
+        [InlineKeyboardButton("🎬 Только видео", callback_data="media_video_only")],
+    ]
+    
+    await update.message.reply_text(
+        f"✅ Критерии сохранены\n\nТеперь выберите тип контента:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="HTML"
+    )
+    return AWAITING_MEDIA_FILTER
+
+
 async def youtube_views_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         views = int(update.message.text.strip())
@@ -273,7 +350,7 @@ async def youtube_views_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     context.user_data['temp_youtube_min_views'] = views
     await update.message.reply_text("👍 Введите минимальное количество лайков (0 = не учитывать):")
-    return AWAITING_REACTIONS  # переиспользуем состояние для лайков
+    return AWAITING_REACTIONS
 
 
 async def youtube_likes_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -287,7 +364,7 @@ async def youtube_likes_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     context.user_data['temp_youtube_min_likes'] = likes
     await update.message.reply_text("💬 Введите минимальное количество комментариев (0 = не учитывать):")
-    return AWAITING_VIEWS  # переиспользуем состояние для комментариев
+    return AWAITING_VIEWS
 
 
 async def youtube_comments_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -309,7 +386,6 @@ async def youtube_comments_input(update: Update, context: ContextTypes.DEFAULT_T
     
     context.user_data['temp_youtube_criteria'] = criteria
     
-    # Переходим к настройке медиа фильтра
     keyboard = [
         [InlineKeyboardButton("🎬 Все видео", callback_data="media_all")],
         [InlineKeyboardButton("📱 Только Shorts", callback_data="media_shorts_only")],
@@ -447,7 +523,6 @@ async def remove_text_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text("\n".join(text_parts))
         
     else:
-        # YouTube источник
         project_id = context.user_data.get('temp_project_id')
         youtube_query = context.user_data.get('temp_youtube_query')
         youtube_category = context.user_data.get('temp_youtube_category')
@@ -493,7 +568,6 @@ async def remove_text_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await query.edit_message_text("\n".join(text_parts))
     
-    # Спрашиваем про ключевые слова
     keyboard = [
         [InlineKeyboardButton("✅ Добавить ключевые слова", callback_data="add_keywords_yes")],
         [InlineKeyboardButton("⏭️ Пропустить", callback_data="add_keywords_skip")]
@@ -535,7 +609,6 @@ async def add_keywords_skip_callback(update: Update, context: ContextTypes.DEFAU
     
     await query.edit_message_text("✅ Источник добавлен! Ключевые слова не указаны.")
     
-    # Очищаем временные данные
     context.user_data.pop('temp_source_id', None)
     context.user_data.pop('temp_source', None)
     context.user_data.pop('temp_project_id', None)
@@ -595,7 +668,6 @@ async def process_keywords_input(update: Update, context: ContextTypes.DEFAULT_T
     
     await update.message.reply_text(reply)
     
-    # Очищаем временные данные
     context.user_data.pop('temp_source_id', None)
     context.user_data.pop('temp_source', None)
     context.user_data.pop('temp_project_id', None)
@@ -687,7 +759,6 @@ async def show_edit_source_menu(query, source_id: int):
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
         
     else:
-        # YouTube источник
         filter_text = "📱 Только Shorts" if source.media_filter == "shorts_only" else "🎬 Все видео"
         
         text = (
@@ -858,7 +929,6 @@ async def edit_reactions_input(update: Update, context: ContextTypes.DEFAULT_TYP
                 .values(criteria=criteria)
             )
         else:
-            # YouTube источник
             await session.execute(
                 sql_update(SourceChannel)
                 .where(SourceChannel.id == source_id)
