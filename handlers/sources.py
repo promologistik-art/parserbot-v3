@@ -992,6 +992,32 @@ async def edit_media_filter_callback(update: Update, context: ContextTypes.DEFAU
     return ConversationHandler.END
 
 
+async def edit_duration_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка изменения длительности видео (для Telegram источников)."""
+    query = update.callback_query
+    await query.answer()
+    
+    choice = query.data.replace("edit_duration_", "")
+    duration = int(choice) if int(choice) > 0 else None
+    source_id = context.user_data.get('edit_source_id')
+    
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            sql_update(SourceChannel)
+            .where(SourceChannel.id == source_id)
+            .values(max_video_duration=duration)
+        )
+        await session.commit()
+    
+    dur_text = f"до {duration}с" if duration else "без ограничений"
+    await query.edit_message_text(f"✅ Длительность видео обновлена: {dur_text}")
+    
+    await show_edit_source_menu(query, source_id)
+    
+    context.user_data.pop('edit_source_id', None)
+    return ConversationHandler.END
+
+
 async def edit_remove_text_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
