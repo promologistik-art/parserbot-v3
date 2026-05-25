@@ -26,7 +26,6 @@ from .sources import (
     edit_exclude_phrases_input, edit_keywords_input,
     add_keywords_yes_callback, add_keywords_skip_callback, process_keywords_input,
     back_to_sources_callback,
-    # YouTube функции
     source_type_callback,
     youtube_query_input, youtube_category_callback, youtube_region_callback,
     youtube_criteria_callback, youtube_views_input, youtube_likes_input,
