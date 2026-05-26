@@ -77,6 +77,11 @@ async def main():
     logger.info("Database initialized")
     
     app = Application.builder().token(Config.BOT_TOKEN).build()
+    
+    # Принудительно удаляем вебхук
+    await app.bot.delete_webhook()
+    logger.info("Webhook deleted")
+    
     await setup_bot_commands(app)
     
     poster = TelegramPoster(app.bot)
