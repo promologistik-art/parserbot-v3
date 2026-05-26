@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 YouTube Content Bot
-Version: 1.0.05 (25.05.2026)
+Version: 1.0.05 (26.05.2026)
 """
 
 import asyncio
@@ -157,12 +157,6 @@ async def main():
                 CommandHandler("help", help_command),
                 CommandHandler("cancel", cancel),
             ],
-            AWAITING_SOURCE_USERNAME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, add_source_username),
-                CommandHandler("start", start),
-                CommandHandler("help", help_command),
-                CommandHandler("cancel", cancel),
-            ],
             AWAITING_YOUTUBE_QUERY: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, youtube_query_input),
                 CommandHandler("start", start),
@@ -183,6 +177,12 @@ async def main():
             ],
             AWAITING_YOUTUBE_CRITERIA: [
                 CallbackQueryHandler(youtube_criteria_callback, pattern="^youtube_criteria_"),
+                CommandHandler("start", start),
+                CommandHandler("help", help_command),
+                CommandHandler("cancel", cancel),
+            ],
+            AWAITING_SOURCE_USERNAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, add_source_username),
                 CommandHandler("start", start),
                 CommandHandler("help", help_command),
                 CommandHandler("cancel", cancel),
