@@ -168,7 +168,9 @@ async def add_source_criteria(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def youtube_query_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("=== youtube_query_input CALLED ===")
     query_text = update.message.text.strip()
+    logger.info(f"Query: {query_text}")
     
     if query_text == "-":
         context.user_data['temp_youtube_query'] = None
@@ -993,7 +995,6 @@ async def edit_media_filter_callback(update: Update, context: ContextTypes.DEFAU
 
 
 async def edit_duration_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка изменения длительности видео (для Telegram источников)."""
     query = update.callback_query
     await query.answer()
     
@@ -1011,7 +1012,6 @@ async def edit_duration_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     dur_text = f"до {duration}с" if duration else "без ограничений"
     await query.edit_message_text(f"✅ Длительность видео обновлена: {dur_text}")
-    
     await show_edit_source_menu(query, source_id)
     
     context.user_data.pop('edit_source_id', None)
