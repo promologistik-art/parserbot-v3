@@ -25,29 +25,49 @@ logger = logging.getLogger(__name__)
 # ============ ДОБАВЛЕНИЕ ИСТОЧНИКА ============
 
 async def add_source_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("=" * 50)
+    logger.info("add_source_start CALLED")
+    logger.info(f"User ID: {update.effective_user.id}")
+    logger.info(f"user_data BEFORE clear: {context.user_data}")
+    
     current_project = context.user_data.get(CURRENT_PROJECT_KEY)
     context.user_data.clear()
     if current_project:
         context.user_data[CURRENT_PROJECT_KEY] = current_project
     
+    logger.info(f"user_data AFTER clear: {context.user_data}")
+    
     telegram_id = update.effective_user.id
+    logger.info(f"Calling require_project for user {telegram_id}")
     project = await require_project(update, context)
     
+    logger.info(f"require_project returned: {project}")
+    
     if not project:
+        logger.error("No project found, returning ConversationHandler.END")
         return ConversationHandler.END
     
+    logger.info(f"Project found: {project.id} - {project.name}")
+    
     has_access, message, user = await check_user_access(telegram_id)
+    logger.info(f"check_user_access: has_access={has_access}, message={message}")
+    
     if not has_access:
         await update.message.reply_text(message)
         return ConversationHandler.END
     
+    logger.info(f"check_action_limit for add_source")
     can_add, limit_msg = await check_action_limit(user, "add_source", project_id=project.id)
+    logger.info(f"can_add={can_add}, limit_msg={limit_msg}")
+    
     if not can_add and not user.is_admin:
         await update.message.reply_text(f"❌ {limit_msg}")
         return ConversationHandler.END
     
     context.user_data['temp_project_id'] = project.id
     context.user_data['temp_project_name'] = project.name
+    
+    logger.info(f"temp_project_id set to {project.id}")
     
     keyboard = [
         [InlineKeyboardButton("📡 Telegram канал", callback_data="source_type_telegram")],
@@ -59,11 +79,14 @@ async def add_source_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Выберите тип источника:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+    logger.info("Sent source type selection keyboard")
+    logger.info("Returning AWAITING_SOURCE_TYPE")
     return AWAITING_SOURCE_TYPE
 
 
 async def source_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    logger.info(f"source_type_callback called with data: {query.data}")
     await query.answer()
     
     source_type = query.data.replace("source_type_", "")
@@ -90,6 +113,7 @@ async def source_type_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def add_source_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"add_source_username called with: {update.message.text}")
     username = extract_channel_username(update.message.text)
     if not username:
         await update.message.reply_text("❌ Не удалось распознать username.")
@@ -168,9 +192,12 @@ async def add_source_criteria(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def youtube_query_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("=== youtube_query_input CALLED ===")
+    logger.info("=" * 50)
+    logger.info("youtube_query_input CALLED")
+    logger.info(f"Message text: {update.message.text}")
+    logger.info("=" * 50)
+    
     query_text = update.message.text.strip()
-    logger.info(f"Query: {query_text}")
     
     if query_text == "-":
         context.user_data['temp_youtube_query'] = None
